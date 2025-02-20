@@ -1,99 +1,68 @@
 <?php
 /*
-Plugin Name: DDismyname Plugin Dev
-Plugin URI: http://wordpress.org/plugins/dd/
-Description: Something new.
-Author: Djofil Demerin
-Version: 1.0.0
-Author URI: http://wordpress.org/plugins/dd/
+Plugin Name: Custom Settings Page
+Description: A simple plugin to create a custom settings page using the Settings API.
+Version: 1.0
+Author: Your Name
 */
 
-register_activation_hook(__FILE__, 'set_default_options');
+add_action('admin_menu', 'render_custom_settings_page');
+add_action('admin_init', 'initialize_settings_sections');
+add_action('wp_footer', 'render_settings_on_page');
+add_action('admin_enqueue_scripts', 'enqueue_custom_media_scripts');
 
-function set_default_options() {
-    if (!get_option('ch3api_options')) {
-        add_option(
-            'ch3api_options',
-            [
-                'ga_account_name' => 'UA-00000-0',
-                'url' => 'linkedin.com',
-            ]
+register_activation_hook(__FILE__, 'initialize_default_settings');
+register_deactivation_hook(__FILE__, 'remove_default_settings');
+
+function initialize_default_settings() {
+    if (!get_option('dev_custom_settings')) {
+        $settings = array(
+            'enable' => false,
+            'color' => '#cecece',
+            'message' => 'This is a paragraph.'
         );
-    }
-
-    $options = get_option('ch3api_options', []);
-
-    $new_options = ['debug' => TRUE];
-
-    $merged_options = wp_parse_args($options, $new_options);
-
-    $compare_options = array_diff_key($new_options, $options);
-
-    if (empty($options) || !empty($compare_options)) {
-        update_option('ch3api_options', $merged_options);
-    }
-    return $merged_options;
-}
-
-register_deactivation_hook(__FILE__, 'remove_options_settings');
-
-function remove_options_settings() {
-    if (get_option('ch3api_options')) {
-        delete_option('ch3api_options');
+        add_option('dev_custom_settings', $settings);
     }
 }
 
-add_action('admin_menu', 'plugin_dev_settings_menu');
-
-function plugin_dev_settings_menu() {
-
-    add_menu_page(
-        'Plugin Tutorial', // page title (whatever)
-        'Plugin Tutorial', // menu title (whatever)
-        'manage_options', // necessary capacity
-        'plugin-overview-settings', // page slug
-        'plugin_tutorial_overview_page_cb', // your function to load page 1 resources
-        //a cute icon from developer.wordpress.org/resource/
-    );
-
-    add_submenu_page( //Identical to the menu except for the label
-        'plugin-overview-settings',  // parent slug
-        'Plugin Tutorial Overview', // page title (whatever)
-        'Overview',  // Label do submenu (whatever) --> (replaces duplicate My Plugin Name)
-        'manage_options', // necessary capacity
-        'plugin-overview-settings',   // your function to load page 1 resources
-        'plugin_tutorial_overview_page_cb', // function to load page 1 resources again
-    );
-
-    add_submenu_page(
-        'plugin-overview-settings',  // parent slug
-        'Plugin Tutorial Tools', // page title (whatever)
-        'Tools',  // Submenu label  (whatever) 
-        'manage_options', // necessary capacity
-        'plugin-tools-settings',   // page slug
-        'plugin_tutorial_tools_main_cb', // your function to load page 2 resources
-    );
+function remove_default_settings() {
+    delete_option('dev_custom_settings');
 }
 
-add_action('admin_init', 'ch3api_admin_init');
+function enqueue_custom_media_scripts() {
+    // Only enqueue on the settings page
+    if (isset($_GET['page']) && $_GET['page'] === 'custom-settings-page') {
+        wp_enqueue_media(); // This function loads the necessary media scripts
+    }
+}
 
-function plugin_tutorial_overview_page_cb() {
-    // Add HTML content to display on the page.
+function render_settings_on_page() {
+    $options = get_option('dev_custom_settings');
+    if ($options['enable']) {
 ?>
+        <div style="background-color: <?php echo esc_attr($options['color']); ?>;"><?php echo esc_html($options['message']); ?></div>
+    <?php
+    }
+}
+
+function render_custom_settings_page() {
+    add_options_page('Custom Settings Page', 'Custom Settings Page', 'manage_options', 'custom-settings-page', 'custom_settings_page');
+}
+
+function custom_settings_page() {
+    ?>
     <div class="wrap">
         <div class="settings-notices">
             <?php
             // Display any settings errors related to 'ch3api_options'
-            settings_errors('ga_account_name_notices');
+            settings_errors('error-admin-notices');
             ?>
         </div>
-        <form method="post" action="options.php">
+
+        <form action="options.php" method="POST">
             <?php
-            // Add the necessary hidden fields for saving the settings
-            settings_fields('plugin_tutorial_overview_group_settings');
-
-            do_settings_sections('plugin-overview-settings');
-
+            settings_fields('custom_settings_group');
+            do_settings_sections('custom-settings-page');
             submit_button('Save Settings');
             ?>
         </form>
@@ -101,119 +70,189 @@ function plugin_tutorial_overview_page_cb() {
 <?php
 }
 
-function plugin_tutorial_tools_main_cb() {
-    // Add HTML content to display on the page.
-?>
-    <div class="wrap">
-        <div class="settings-notices">
-            <?php
-            // Display any settings errors related to 'ch3api_options'
-            settings_errors('debug_notices');
-            ?>
-        </div>
+function initialize_settings_sections() {
+    register_setting('custom_settings_group', 'dev_custom_settings', ['sanitize_callback' => 'sanitize_all_input_fields']);
 
-        <form method="post" action="options.php">
-            <?php
-            // Add the necessary hidden fields for saving the settings
-            settings_fields('plugin_tutorial_overview_group_settings');
+    add_settings_section('custom-settings-section', 'Custom Settings Section', 'custom_settings_section_description_cb', 'custom-settings-page');
 
-            do_settings_sections('plugin-tools-settings');
+    add_settings_field('custom-checkbox-field', 'Enable or Disable Custom Settings', 'render_checkbox_field', 'custom-settings-page', 'custom-settings-section');
+    add_settings_field('custom-color-field', 'Enter Hexadecimal Color', 'render_color_field', 'custom-settings-page', 'custom-settings-section');
+    add_settings_field('custom-message-field', 'Enter Text Message', 'render_textarea_field', 'custom-settings-page', 'custom-settings-section');
+    add_settings_field('custom-select-field', 'Select one post', 'render_select_field', 'custom-settings-page', 'custom-settings-section');
 
-            submit_button('Save Settings');
-            ?>
-        </form>
-    </div>
-<?php
+    add_settings_field('custom-images-field', 'Upload Images', 'render_images_uploader', 'custom-settings-page', 'custom-settings-section');
 }
 
-
-
-function ch3api_admin_init() {
-
-    register_setting('plugin_tutorial_overview_group_settings', 'ch3api_options', ['sanitize_callback' => 'validate_all_input_settings']);
-
-    // Overview Settings
-    add_settings_section('overview_main_section', 'Overview Settings', 'plugin_tutorial_overview_section_description_cb', 'plugin-overview-settings');
-    add_settings_field('ga_account_name', 'Account Name', 'display_ga_account_name_text_field', 'plugin-overview-settings', 'overview_main_section');
-
-    // Tools Settings
-    add_settings_section('tools_main_section', 'Tools Settings', 'plugin_tutorial_tools_section_description_cb', 'plugin-tools-settings');
-    add_settings_field('plugin-tools-settings', 'Enable Debug', 'display_debug_checkbox_field', 'plugin-tools-settings', 'tools_main_section');
+function custom_settings_section_description_cb() {
+    echo 'This is the settings for the custom page.';
 }
 
-function plugin_tutorial_overview_section_description_cb() {
-    echo 'Please enter your Overview configuration file in the inputs below.';
-}
+function render_select_field() {
+    $args = array(
+        'post_type' => 'post',
+        'post_status' => 'publish',
+        'posts_per_page' => -1
+    );
 
-function plugin_tutorial_tools_section_description_cb() {
-    echo 'Please enter your Tools configuration file in the inputs below.';
-}
-
-function display_ga_account_name_text_field($args) {
-    // Get the 'ch3api_options' array from the database
-    $option_value = get_option('ch3api_options');
-
-    // Retrieve the specific option (e.g., 'ga_account_name') from the array
-    $value = isset($option_value['ga_account_name']) ? esc_attr($option_value['ga_account_name']) : '';
-
-    // Generate the input field with the correct name and value attributes
-    echo '<input type="text" value="' . $value . '" name="ch3api_options[ga_account_name]" />';
-}
-
-function display_debug_checkbox_field($args) {
-    // Get the 'ch3api_options' array from the database
-    $option_value = get_option('ch3api_options');
-
-    // Retrieve the specific option (e.g., 'debug') from the array
-    // If the 'debug' option is set to '1', checkbox will be checked; otherwise, it will be unchecked
-    $value = isset($option_value['debug']) ? $option_value['debug'] : 0; // default to 0 if not set
-
-    // Check if the checkbox should be checked or not
-    $checked = ($value == 1) ? 'checked' : '';
-
-    // Generate the checkbox input with the correct name and value attributes
-    echo '<input type="checkbox" name="ch3api_options[debug]" value="1" ' . $checked . ' />';
-}
-
-
-function validate_all_input_settings($input) {
-    // Get the current options array from the database
-    $options = get_option('ch3api_options');
-
-    // If the input has a value for ga_account_name, update it in the options array
-    if (isset($input['ga_account_name'])) {
-        $options['ga_account_name'] = sanitize_text_field($input['ga_account_name']);
-
-        add_settings_error(
-            'ga_account_name_notices',            // Settings group
-            'ga_account_name-text-field-updated',      // Error code (unique identifier)
-            'Account has been updated.', // Error message
-            'updated'                      // Type of error (you can use 'error', 'updated', or 'warning')
-        );
-    }
-
-    // If the 'debug' checkbox was checked, set it to 1; otherwise, set it to 0
-    if (isset($input['debug'])) {
-        // If 'debug' is set in the form, it was checked, so set to 1
-        $options['debug'] = 1;
-
-        add_settings_error(
-            'debug_notices',            // Settings group
-            'debug-checkbox-updated',      // Error code (unique identifier)
-            'Debug option is enabled.', // Error message
-            'updated'                      // Type of error (you can use 'error', 'updated', or 'warning')
-        );
+    $posts = [];
+    // The Query.
+    $query = new WP_Query($args);
+    // The Loop.
+    if ($query->have_posts()) {
+        while ($query->have_posts()) {
+            $query->the_post();
+            $posts[] = [
+                'id' => get_the_ID(),
+                'title' => get_the_title(),
+            ];
+        }
     } else {
-        // If 'debug' is not set, it means the checkbox was unchecked, so set to 0
-        $options['debug'] = 0;
+        $posts[] = esc_html_e('Sorry, no posts have been created. Create one');
+    }
+    // Restore original Post Data.
+    wp_reset_postdata();
 
-        add_settings_error(
-            'debug_notices',            // Settings group
-            'debug-checkbox-warning',      // Error code (unique identifier)
-            'Debug option must be enabled for troubleshooting.', // Error message
-            'warning'                      // Type of error (you can use 'error', 'updated', or 'warning')
-        );
+    $html = ' <select name="dev_custom_settings[post]" id="">';
+    foreach ($posts as $post) {
+        $html .= '<option id="' . $post['id'] . '" value="' . $post['id'] . '">' . $post['title'] . '</option>';
+    }
+    $html .= '</select>';
+
+    echo $html;
+}
+
+function render_checkbox_field() {
+    $options = get_option('dev_custom_settings');
+    $checked = $options['enable'] ? 'checked' : '';
+    echo '<input type="checkbox" name="dev_custom_settings[enable]" value="1"' . $checked . '>';
+}
+
+function render_color_field() {
+    $options = get_option('dev_custom_settings');
+    echo '<input type="text" name="dev_custom_settings[color]" value="' . esc_attr($options["color"]) . '">';
+}
+
+function render_textarea_field() {
+    $options = get_option('dev_custom_settings');
+    echo '<textarea name="dev_custom_settings[message]" cols="30" rows="5">' . esc_html($options["message"]) . '</textarea>';
+}
+
+function render_images_uploader() {
+    $options = get_option('dev_custom_settings');
+    $images = isset($options['images']) ? $options['images'] : []; // Get the saved image URLs
+?>
+    <input type="hidden" name="dev_custom_settings[images]" id="images_url" value="<?php echo esc_attr(implode(',', $images)); ?>">
+    <input type="button" id="upload_images_button" class="button" value="Upload Images">
+    <br>
+
+    <div id="uploaded_images">
+        <?php if ($images): ?>
+            <?php foreach ($images as $image): ?>
+                <div class="uploaded_image" style="display: inline-block; margin-right: 10px;">
+                    <img src="<?php echo esc_url($image); ?>" style="max-width: 100px; height: auto;">
+                    <button type="button" class="remove_image_button" data-image-url="<?php echo esc_url($image); ?>">Remove</button>
+                </div>
+            <?php endforeach; ?>
+        <?php endif; ?>
+    </div>
+
+    <script type="text/javascript">
+        jQuery(document).ready(function($) {
+            var mediaUploader;
+
+            $('#upload_images_button').click(function(e) {
+                e.preventDefault();
+
+                // If the uploader object has already been created, reopen the dialog
+                if (mediaUploader) {
+                    mediaUploader.open();
+                    return;
+                }
+
+                // Extend the wp.media object to allow multiple selections
+                mediaUploader = wp.media.frames.file_frame = wp.media({
+                    title: 'Choose Images',
+                    button: {
+                        text: 'Use these images'
+                    },
+                    multiple: true // Allow multiple files
+                });
+
+                // When images are selected, run a callback
+                mediaUploader.on('select', function() {
+                    var selection = mediaUploader.state().get('selection');
+                    var selectedImages = [];
+                    selection.each(function(attachment) {
+                        selectedImages.push(attachment.attributes.url); // Get the URL of each selected image
+                    });
+
+                    // Update the hidden field with the selected image URLs
+                    var currentImages = $('#images_url').val().split(',');
+                    currentImages = currentImages.concat(selectedImages);
+                    $('#images_url').val(currentImages.join(','));
+
+                    // Display the images
+                    updateUploadedImagesDisplay();
+                });
+
+                // Open the uploader dialog
+                mediaUploader.open();
+            });
+
+            // Update the display of uploaded images
+            function updateUploadedImagesDisplay() {
+                var imageUrls = $('#images_url').val().split(',');
+                var displayHtml = '';
+                imageUrls.forEach(function(url) {
+                    displayHtml += '<div class="uploaded_image" style="display: inline-block; margin-right: 10px;">' +
+                        '<img src="' + url + '" style="max-width: 100px; height: auto;">' +
+                        '<button type="button" class="remove_image_button" data-image-url="' + url + '">Remove</button>' +
+                        '</div>';
+                });
+                $('#uploaded_images').html(displayHtml);
+            }
+
+            // Remove an image when the remove button is clicked
+            $(document).on('click', '.remove_image_button', function() {
+                var imageUrl = $(this).data('image-url');
+                var currentImages = $('#images_url').val().split(',').filter(function(url) {
+                    return url !== imageUrl;
+                });
+                $('#images_url').val(currentImages.join(','));
+                updateUploadedImagesDisplay();
+            });
+        });
+    </script>
+<?php
+}
+
+function sanitize_all_input_fields($inputs) {
+    if (isset($inputs['enable'])) {
+        $inputs['enable'] = true;
+    } else {
+        $inputs['enable'] = false;
     }
 
-    return $options; // Return the updated options array
+    if (isset($inputs['message'])) {
+        $inputs['message'] = sanitize_text_field($inputs['message']);
+    }
+
+    if (isset($inputs['color'])) {
+        $sanitized_color = sanitize_hex_color($inputs['color']);
+        if (!$sanitized_color) {
+            add_settings_error('error-admin-notices', 'color-checkbox-error', 'The inputted Hexadecimal color is not valid.', 'warning');
+            $options = get_option('dev_custom_settings');
+            $inputs['color'] = $options['color'];
+        } else {
+            $inputs['color'] = $sanitized_color;
+        }
+    }
+
+    if (isset($inputs['images'])) {
+        if (isset($inputs['images'])) {
+            $inputs['images'] = array_map('esc_url_raw', explode(',', $inputs['images']));
+        }
+    }
+
+    return $inputs;
 }
