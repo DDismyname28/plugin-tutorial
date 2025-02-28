@@ -7,6 +7,10 @@ Version: 1.0
 Author: Djofil Demerin
 */
 
+if (! defined('ABSPATH')) {
+    exit; // Exit if accessed directly
+}
+
 // Register our defaults or options settings
 
 register_activation_hook(__FILE__, 'register_default_options');
@@ -66,6 +70,9 @@ function render_metaboxes_cb($post) {
     echo '<input type="text" name="member_position_title_field" value="' . esc_attr(isset($member_meta_values['member_position_title_field']) ? $member_meta_values['member_position_title_field'] : '') . '">';
 
     if ($options['email'] == TRUE) {
+        if (isset($_GET['invalid_email']) && $_GET['invalid_email'] == TRUE) {
+            echo '<div class="error"><p><strong>ERROR:</strong> The email address you entered is invalid. Please correct it.</p></div>';
+        }
         echo '<p><strong>Email:</strong></p>';
         echo '<input type="text" name="member_email_field" value="' . esc_attr(isset($member_meta_values['member_email_field']) ? $member_meta_values['member_email_field'] : '') . '">';
     }
@@ -89,8 +96,10 @@ function save_metaboxes_cb($post_id) {
         $email = sanitize_email($_POST['member_email_field']);
 
         if (!is_email($email)) {
-
-            wp_die(__('Error: The email address you entered is invalid. Please correct it and try again.'));
+            $post_meta_values = get_post_meta($post_id, 'post_meta_values');
+            // wp_die(__('Error: The email address you entered is invalid. Please correct it and try again.'));
+            add_filter('redirect_post_location', 'invalid_email_error');
+            return;
         }
 
         $post_meta_values['member_email_field'] = $email;
@@ -104,6 +113,10 @@ function save_metaboxes_cb($post_id) {
 }
 
 add_action('save_post', 'save_metaboxes_cb');
+
+function invalid_email_error($location) {
+    return add_query_arg('invalid_email', 'true', $location);
+}
 
 function delete_default_options($post) {
     delete_option('members_directory_options');
